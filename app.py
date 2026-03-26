@@ -1,26 +1,32 @@
 import streamlit as st
 import pytesseract
-from pdf2image import convert_from_bytes
-import re
+from PIL import Image
+import io
 
-st.title("⚖️ Cloud Document Processor")
+st.set_page_config(page_title="Doc Processor", layout="centered")
+st.title("⚖️ Document Processor")
 
-# Optimized for a single pre-batched PDF from your phone
-uploaded_pdf = st.file_uploader("Upload Scanned PDF Batch", type=['pdf'])
+# Force a simple file uploader to prevent the "Connecting" hang
+uploaded_files = st.file_uploader("Select Photos", type=['png', 'jpg', 'jpeg'], accept_multiple_files=True)
 
-if uploaded_pdf:
-    if st.button("Process Batch"):
-        # Convert PDF to images (one page at a time to save RAM)
-        pages = convert_from_bytes(uploaded_pdf.read())
-        
+if uploaded_files:
+    st.info(f"Ready to process {len(uploaded_files)} files.")
+    
+    if st.button("Start Extraction"):
         full_text = ""
         progress_bar = st.progress(0)
         
-        for i, page in enumerate(pages):
-            text = pytesseract.image_to_string(page)
-            full_text += f"\n--- Page {i+1} ---\n{text}"
-            progress_bar.progress((i + 1) / len(pages))
+        for i, f in enumerate(uploaded_files):
+            # Open image and convert to RGB (fixes many mobile upload errors)
+            img = Image.open(f).convert("RGB")
             
-        st.success("✅ Analysis Complete")
-        st.download_button("Download Itinerary", full_text, "Itinerary.txt")
-        st.text_area("Preview:", full_text, height=300)
+            # OCR logic
+            text = pytesseract.image_to_string(img)
+            full_text += f"\n--- Page {i+1} ---\n{text}"
+            
+            # Update progress
+            progress_bar.progress((i + 1) / len(uploaded_files))
+        
+        st.success("✅ Complete")
+        st.text_area("Results:", full_text, height=300)
+        st.download_button("Download Text", full_text, "itinerary.txt")
